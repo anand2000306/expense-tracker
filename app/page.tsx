@@ -15,6 +15,9 @@ export default function Home() {
   const [category, setCategory] = useState("");
   const [expenses, setExpenses] = useState<any[]>([]);
   const [dark, setDark] = useState(true);
+  const [search, setSearch] = useState("");
+  const [income, setIncome] = useState("");
+  const [totalIncome, setTotalIncome] = useState(0);
 
   // AUTH CHECK
   useEffect(() => {
@@ -35,18 +38,37 @@ export default function Home() {
   };
 
   // FETCH
-  const fetchExpenses = async () => {
-    const { data } = await supabase
-      .from("expenses")
-      .select("*")
-      .order("id", { ascending: false });
+     const fetchExpenses = async () => {
+     const { data } = await supabase
+        .from("expenses")
+        .select("*")
+       .eq("user_id", user.id)
+       .order("id", { ascending: false });
 
-    setExpenses(data || []);
-  };
+      setExpenses(data || []);
+    };
 
   useEffect(() => {
-    if (user) fetchExpenses();
-  }, [user]);
+     if (user) {
+       fetchExpenses();
+       fetchIncome();
+     }
+    }, [user]);
+
+    const fetchIncome = async () => {
+     const { data } = await supabase
+      .from("income")
+      .select("*")
+      .eq("user_id", user.id);
+
+     const total =
+       data?.reduce(
+         (sum, item) => sum + Number(item.amount),
+         0
+       ) || 0;
+
+    setTotalIncome(total);
+  };
 
   // ADD
   const addExpense = async () => {
@@ -73,7 +95,32 @@ export default function Home() {
     fetchExpenses();
   };
 
+  const addIncome = async () => {
+  if (!income) return;
+
+  await supabase.from("income").insert([
+    {
+      amount: Number(income),
+      user_id: user.id,
+    },
+  ]);
+
+    setIncome("");
+    fetchIncome();
+  };
+
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
+
+  const currentMonth = new Date().getMonth();
+
+  const monthlyTotal = expenses
+         .filter(
+          (e) =>
+          new Date(e.created_at).getMonth() === currentMonth
+    )
+    .reduce((sum, e) => sum + Number(e.amount), 0);
+
+    const balance = totalIncome - total;
 
   // CHART DATA
   const chartData = expenses.reduce((acc: any[], cur) => {
@@ -116,6 +163,42 @@ export default function Home() {
           <h4>Items</h4>
           <h2>{expenses.length}</h2>
         </div>
+
+        <div
+          style={{
+          flex: 1,
+          padding: 15,
+          background: dark ? "#1e293b" : "white",
+          borderRadius: 10
+      }}
+      >
+          <h4>This Month</h4>
+          <h2>₹{monthlyTotal}</h2>
+      </div>
+
+      <div
+         style={{
+         flex: 1,
+         padding: 15,
+         background: dark ? "#1e293b" : "white",
+         borderRadius: 10
+         }}
+>
+         <h4>Total Income</h4>
+         <h2>₹{totalIncome}</h2>
+       </div>
+
+      <div
+          style={{
+          flex: 1,
+          padding: 15,
+          background: dark ? "#1e293b" : "white",
+          borderRadius: 10
+        }}
+>
+        <h4>Balance</h4>
+        <h2>₹{balance}</h2>
+      </div>
       </div>
 
       {/* INPUT */}
@@ -124,7 +207,40 @@ export default function Home() {
 
         <input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: "100%", padding: 10, marginBottom: 10 }} />
 
-        <input placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: "100%", padding: 10, marginBottom: 10 }} />
+        <select
+               value={category}
+               onChange={(e) => setCategory(e.target.value)}
+               style={{ width: "100%", padding: 10, marginBottom: 10 }}
+>
+               <option value="">Select Category</option>
+               <option value="Food">🍔 Food</option>
+               <option value="Travel">🚗 Travel</option>
+               <option value="Shopping">🛒 Shopping</option>
+               <option value="Bills">💡 Bills</option>
+               <option value="Entertainment">🎬 Entertainment</option>
+               <option value="Other">📦 Other</option>
+         </select>
+
+        <input
+             placeholder="Income Amount"
+             value={income}
+             onChange={(e) => setIncome(e.target.value)}
+             style={{
+             width: "100%",
+             padding: 10,
+             marginBottom: 10
+          }}
+     />
+
+       <button
+               onClick={addIncome}
+               style={{
+               width: "100%",
+               marginBottom: 10
+          }}
+>
+         Add Income
+      </button>
 
         <button onClick={addExpense} style={{ width: "100%" }}>Add Expense</button>
       </div>
@@ -144,9 +260,26 @@ export default function Home() {
         </ResponsiveContainer>
       </div>
 
+      <input
+        placeholder="🔍 Search Expense"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{
+            width: "100%",
+            padding: 10,
+            marginTop: 15,
+            marginBottom: 15,
+            borderRadius: 8
+         }}
+       />
+
       {/* LIST */}
       <div style={{ marginTop: 15 }}>
-        {expenses.map((e) => (
+        {expenses
+          .filter((e) =>
+            e.name.toLowerCase().includes(search.toLowerCase())
+     )
+     .map((e) => (
           <motion.div
             key={e.id}
             initial={{ opacity: 0, x: -10 }}
