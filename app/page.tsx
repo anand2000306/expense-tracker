@@ -89,25 +89,35 @@ export default function Home() {
     fetchExpenses();
   };
 
+  const addIncome = async () => {
+  if (!income) return;
+
+  const { error } = await supabase
+     .from("income")
+     .insert([
+        {
+          amount: Number(income),
+          user_id: user.id,
+        },
+      ]);
+
+    if (error) {
+      alert(error.message);
+      console.log(error);
+      return;
+    }
+
+    setIncome("");
+    await fetchIncome();
+  };
+
   // DELETE
   const deleteExpense = async (id: number) => {
     await supabase.from("expenses").delete().eq("id", id);
     fetchExpenses();
   };
 
-  const addIncome = async () => {
-  if (!income) return;
-
-  await supabase.from("income").insert([
-    {
-      amount: Number(income),
-      user_id: user.id,
-    },
-  ]);
-
-    setIncome("");
-    fetchIncome();
-  };
+  
 
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
@@ -203,9 +213,9 @@ export default function Home() {
 
       {/* INPUT */}
       <div style={{ marginTop: 15, padding: 15, background: dark ? "#1e293b" : "white", borderRadius: 10 }}>
-        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%", padding: 10, marginBottom: 10 }} />
+        <input placeholder="Name"  value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%", padding: 10, marginBottom: 10 }} />
 
-        <input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: "100%", padding: 10, marginBottom: 10 }} />
+        <input placeholder="Amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: "100%", padding: 10, marginBottom: 10 }} />
 
         <select
                value={category}
@@ -223,6 +233,7 @@ export default function Home() {
 
         <input
              placeholder="Income Amount"
+             type="number"
              value={income}
              onChange={(e) => setIncome(e.target.value)}
              style={{
