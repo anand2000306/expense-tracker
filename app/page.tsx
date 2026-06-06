@@ -13,7 +13,7 @@ export default function Home() {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [dark, setDark] = useState(true);
 
-  // AUTH FIXED
+  // AUTH (SAFE)
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getUser();
@@ -22,11 +22,15 @@ export default function Home() {
 
     init();
 
-    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   // LOGIN
@@ -53,7 +57,7 @@ export default function Home() {
     });
 
     if (error) alert(error.message);
-    else alert("Signup success → Now login");
+    else alert("Signup done → Now login bro 😎");
   };
 
   // LOGOUT
@@ -78,13 +82,13 @@ export default function Home() {
 
   // ADD
   const addExpense = async () => {
-    if (!name || !amount) return;
+    if (!name || !amount) return alert("Fill all fields");
 
     await supabase.from("expenses").insert([
       {
         name,
         amount: Number(amount),
-        category,
+        category: category || "other",
         user_id: user.id,
       },
     ]);
@@ -103,11 +107,21 @@ export default function Home() {
 
   const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
-  // CHART DATA
-  const chartData = expenses.reduce((acc: any, cur) => {
-    const found = acc.find((a: any) => a.name === cur.category);
-    if (found) found.value += Number(cur.amount);
-    else acc.push({ name: cur.category || "other", value: Number(cur.amount) });
+  // SAFE CHART DATA
+  const chartData = expenses.reduce((acc: any[], cur) => {
+    const cat = cur.category || "other";
+
+    const found = acc.find((a) => a.name === cat);
+
+    if (found) {
+      found.value += Number(cur.amount);
+    } else {
+      acc.push({
+        name: cat,
+        value: Number(cur.amount),
+      });
+    }
+
     return acc;
   }, []);
 
@@ -116,14 +130,8 @@ export default function Home() {
     return (
       <div style={{ padding: 20, textAlign: "center" }}>
         <h1>💰 Expense Tracker</h1>
-
-        <button onClick={login} style={{ margin: 5 }}>
-          Login
-        </button>
-
-        <button onClick={signup} style={{ margin: 5 }}>
-          Signup
-        </button>
+        <button onClick={login}>Login</button>
+        <button onClick={signup}>Signup</button>
       </div>
     );
   }
@@ -140,15 +148,8 @@ export default function Home() {
       }}
     >
       {/* TOP BAR */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 20,
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>💰 Dashboard</h2>
-
         <div>
           <button onClick={() => setDark(!dark)}>🌙</button>
           <button onClick={logout}>Logout</button>
@@ -156,7 +157,7 @@ export default function Home() {
       </div>
 
       {/* CARDS */}
-      <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <div
           style={{
             flex: 1,
@@ -195,21 +196,21 @@ export default function Home() {
           placeholder="Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          style={{ width: "100%", marginBottom: 10, padding: 10 }}
+          style={{ width: "100%", padding: 10, marginBottom: 10 }}
         />
 
         <input
           placeholder="Amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          style={{ width: "100%", marginBottom: 10, padding: 10 }}
+          style={{ width: "100%", padding: 10, marginBottom: 10 }}
         />
 
         <input
           placeholder="Category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          style={{ width: "100%", marginBottom: 10, padding: 10 }}
+          style={{ width: "100%", padding: 10, marginBottom: 10 }}
         />
 
         <button onClick={addExpense} style={{ width: "100%" }}>
@@ -221,8 +222,8 @@ export default function Home() {
       <div
         style={{
           marginTop: 15,
-          background: dark ? "#1e293b" : "white",
           padding: 15,
+          background: dark ? "#1e293b" : "white",
           borderRadius: 12,
         }}
       >
@@ -231,7 +232,7 @@ export default function Home() {
         <ResponsiveContainer width="100%" height={250}>
           <PieChart>
             <Pie data={chartData} dataKey="value" outerRadius={90}>
-              {chartData.map((_, i) => (
+              {chartData.map((item: any, i: number) => (
                 <Cell
                   key={i}
                   fill={["#3b82f6", "#ef4444", "#10b981", "#f59e0b"][i % 4]}
